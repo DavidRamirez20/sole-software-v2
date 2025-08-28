@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==================================================
+// MODELOS DE USUARIO Y AUTENTICACIÓN
+// ==================================================
+
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String
+  name      String
+  type      UserType
+
+  coordinador Coordinador?
+  colaborador Colaborador?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+enum UserType {
+  COORDINADOR
+  COLABORADOR
+}
+
+// ==================================================
+// MODELOS DE COORDINADOR Y COLABORADOR
+// ==================================================
+
+model Coordinador {
+  id     Int   @id @default(autoincrement())
+  userId Int   @unique
+  user   User  @relation(fields: [userId], references: [id])
+}
+
+model Colaborador {
+  id              Int        @id @default(autoincrement())
+  userId          Int        @unique
+  user            User       @relation(fields: [userId], references: [id])
+
+  identificacion  String     @unique
+  genero          String
+  celular         String
+  direccion       String
+  fechaNacimiento DateTime
+  eps             String
+  uniforme        Boolean
+
+  roles           ColaboradorRol[]
+  registros       Registro[]
+}
+
+// ==================================================
+// ROLES DE COLABORADOR (N:M)
+// ==================================================
+
+model ColaboradorRol {
+  colaboradorId Int
+  rolId         Int
+
+  colaborador   Colaborador     @relation(fields: [colaboradorId], references: [id])
+  rol           RolColaborador  @relation(fields: [rolId], references: [id])
+
+  @@id([colaboradorId, rolId])
+}
+
+model RolColaborador {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  colaboradores ColaboradorRol[]
+}
+
+// ==================================================
+// CLIENTES, EMPRESAS Y PROGRAMAS
+// ==================================================
+
+model Cliente {
+  id        Int       @id @default(autoincrement())
+  nombre    String
+  empresas  Empresa[]
+  programas Programa[]
+  registros Registro[]
+}
+
+model Empresa {
+  id        Int       @id @default(autoincrement())
+  nombre    String
+  clienteId Int
+  cliente   Cliente   @relation(fields: [clienteId], references: [id])
+
+  programas Programa[]
+}
+
+model Programa {
+  id              Int       @id @default(autoincrement())
+  nombre          String
+  empresaId       Int
+  clienteId       Int
+  empresa         Empresa   @relation(fields: [empresaId], references: [id])
+  cliente         Cliente   @relation(fields: [clienteId], references: [id])
+
+  sede            String
+  lugarLlegada    String
+  puntoEncuentro  String
+  actividad       String
+  direccion       String
+  personaContacto String
+  modalidad       String
+
+  registros       Registro[]
+  seguimientos    Seguimiento[]
+}
+
+// ==================================================
+// REGISTROS Y SEGUIMIENTOS
+// ==================================================
+
+model Registro {
+  id            Int       @id @default(autoincrement())
+  numeroOrden   String
+  estado        EstadoRegistro
+  fechaServicio DateTime
+  horaInicio    DateTime
+  horaFin       DateTime
+  horasServicio Int
+
+  colaboradorId Int
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+
+  programaId    Int
+  programa      Programa    @relation(fields: [programaId], references: [id])
+
+  clienteId     Int
+  cliente       Cliente     @relation(fields: [clienteId], references: [id])
+
+  seguimientos  Seguimiento[]
+  adicionales   String?     // info extra como transporte, anotaciones, etc.
+  observaciones String?
+}
+
+enum EstadoRegistro {
+  CONFIRMADO
+  PENDIENTE
+  CANCELADO
+  PENDIENTE_POR_PROGRAMAR
+  REPROGRAMADO
+}
+
+model Seguimiento {
+  id          Int       @id @default(autoincrement())
+  programaId  Int
+  programa    Programa  @relation(fields: [programaId], references: [id])
+
+  registroId  Int
+  registro    Registro  @relation(fields: [registroId], references: [id])
+
+  contenido   String
+  createdAt   DateTime  @default(now())
+}
